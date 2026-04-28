@@ -5,7 +5,7 @@ type WebhookPayload = Record<string, unknown>;
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as WebhookPayload;
+    const body = await parseWebhookPayload(request);
     const leadId = pickString(
       body.lead_id,
       getNested(body, "user_data", "lead_id"),
@@ -15,6 +15,9 @@ export async function POST(request: Request) {
     const phone = pickString(
       body.phone,
       body.recipient_phone_number,
+      body.user_number,
+      body.from_number,
+      body.to_number,
       getNested(body, "user_data", "phone"),
       getNested(body, "data", "phone"),
     );
@@ -148,4 +151,24 @@ function normalizeStatus(rawStatus: string | undefined): LeadStatus {
     return "failed";
   }
   return "completed";
+}
+
+async function parseWebhookPayload(request: Request): Promise<WebhookPayload> {
+  const rawBody = await request.text();
+
+  if (!rawBody.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(rawBody) as WebhookPayload;
+  } catch {
+    // Some tool integrations send form-encoded bodies instead of JSON.
+    const formValues = Object.fromEntries(new URLSearchParams(rawBody).entries());
+    if (Object.keys(formValues).length > 0) {
+      return formValues;
+    }
+
+    throw new Error("Invalid webhook payload format.");
+  }
 }
