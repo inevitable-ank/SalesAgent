@@ -21,21 +21,18 @@ export async function POST(request: Request) {
       getNested(body, "user_data", "phone"),
       getNested(body, "data", "phone"),
     );
-    const callStatus = normalizeStatus(
-      pickString(
-        body.status,
-        body.call_status,
-        getNested(body, "data", "status"),
-        body.event,
-      ),
+    const rawStatus = pickString(
+      body.status,
+      body.call_status,
+      getNested(body, "data", "status"),
+      body.event,
     );
-    const summary =
-      pickString(
-        body.summary,
-        body.call_summary,
-        getNested(body, "result", "summary"),
-        getNested(body, "data", "summary"),
-      ) || "Call completed. Summary not provided.";
+    const summary = pickString(
+      body.summary,
+      body.call_summary,
+      getNested(body, "result", "summary"),
+      getNested(body, "data", "summary"),
+    );
     const qualified = pickBoolean(
       body.qualified,
       getNested(body, "result", "qualified"),
@@ -49,12 +46,27 @@ export async function POST(request: Request) {
       );
     }
 
-    if (leadId) {
-      const updated = await updateLead(leadId, {
-        callStatus,
-        qualified,
-        summary,
+    const updates: Parameters<typeof updateLead>[1] = {};
+    if (rawStatus) {
+      updates.callStatus = normalizeStatus(rawStatus);
+    }
+    if (qualified !== null) {
+      updates.qualified = qualified;
+    }
+    if (summary) {
+      updates.summary = summary;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return Response.json({
+        ok: true,
+        skipped: true,
+        message: "No actionable fields in payload; skipped update.",
       });
+    }
+
+    if (leadId) {
+      const updated = await updateLead(leadId, updates);
 
       if (updated) {
         return Response.json({ ok: true, lead: updated });
@@ -68,11 +80,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const fallbackUpdated = await updateLatestLeadByPhone(phone, {
-      callStatus,
-      qualified,
-      summary,
-    });
+    const fallbackUpdated = await updateLatestLeadByPhone(phone, updates);
 
     if (!fallbackUpdated) {
       return Response.json(
