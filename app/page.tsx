@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import {
+  AppShell,
+  inputClassName,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+} from "@/app/components/app-shell";
 
 export default function Home() {
   const [name, setName] = useState("");
@@ -52,150 +58,198 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-zinc-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
-        <header className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="mb-2 inline-flex rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                Voice AI Lead Qualification
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Bolna Lead Qualifier
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-zinc-300">
-                Capture inbound leads, trigger an AI call instantly, and track
-                qualification outcomes in real time from your dashboard.
-              </p>
+    <AppShell active="home">
+      <div className="mb-8 max-w-2xl">
+        <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-200">
+          <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+          Outbound voice qualification
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Qualify inbound leads in minutes
+        </h1>
+        <p className="mt-3 text-base leading-relaxed text-slate-400">
+          Submit a lead, trigger an AI call instantly, and track qualification
+          outcomes on the dashboard in real time.
+        </p>
+      </div>
+
+      <section className="grid gap-6 lg:grid-cols-5 lg:gap-8">
+        <div className="lg:col-span-3">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 shadow-xl shadow-black/20 sm:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Start qualification call
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Bolna will call this number and run your qualification script.
+                </p>
+              </div>
+              <Link
+                href="/dashboard"
+                className={`${secondaryButtonClassName} shrink-0`}
+              >
+                View leads
+              </Link>
             </div>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center rounded-md border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium transition hover:bg-white/20"
-            >
-              Open Dashboard
-            </Link>
-          </div>
-        </header>
 
-        <section className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-zinc-900/80 p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold">Start Qualification Call</h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              Enter lead details and trigger an outbound qualification call.
-            </p>
-
-            <form onSubmit={onSubmit} className="mt-5 space-y-4">
+            <form onSubmit={onSubmit} className="space-y-5">
               <label className="block">
-                <span className="mb-1 block text-sm text-zinc-300">
+                <span className="mb-1.5 block text-sm font-medium text-slate-300">
                   Lead name
                 </span>
                 <input
                   required
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none transition placeholder:text-zinc-500 focus:border-blue-500"
+                  className={inputClassName}
                   placeholder="John Doe"
+                  autoComplete="name"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm text-zinc-300">
+                <span className="mb-1.5 block text-sm font-medium text-slate-300">
                   Phone number
                 </span>
                 <input
                   required
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none transition placeholder:text-zinc-500 focus:border-blue-500"
+                  className={inputClassName}
                   placeholder="+91XXXXXXXXXX"
+                  autoComplete="tel"
+                  inputMode="tel"
                 />
+                <span className="mt-1.5 block text-xs text-slate-500">
+                  Use E.164 format (e.g. +918289094077) for outbound testing.
+                </span>
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm text-zinc-300">Company</span>
+                <span className="mb-1.5 block text-sm font-medium text-slate-300">
+                  Company
+                </span>
                 <input
                   required
                   value={company}
                   onChange={(event) => setCompany(event.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 outline-none transition placeholder:text-zinc-500 focus:border-blue-500"
+                  className={inputClassName}
                   placeholder="Acme Pvt Ltd"
+                  autoComplete="organization"
                 />
               </label>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className={primaryButtonClassName}
               >
-                {isSubmitting ? "Submitting..." : "Start Qualification Call"}
+                {isSubmitting ? (
+                  <>
+                    <Spinner />
+                    Submitting…
+                  </>
+                ) : (
+                  "Start qualification call"
+                )}
               </button>
 
               {message ? (
-                <p
-                  className={`rounded-md border px-3 py-2 text-sm ${
+                <div
+                  role="status"
+                  className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${
                     isError
-                      ? "border-red-500/30 bg-red-500/10 text-red-200"
-                      : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                      ? "border-red-500/40 bg-red-500/10 text-red-100"
+                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
                   }`}
                 >
                   {message}
-                </p>
+                </div>
               ) : null}
             </form>
           </div>
+        </div>
 
-          <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
-            <h2 className="text-lg font-semibold">Workflow</h2>
-            <div className="mt-4 space-y-3 text-sm text-zinc-300">
-              <Step
-                number="1"
+        <div className="lg:col-span-2">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 sm:p-7">
+            <h2 className="text-lg font-semibold text-white">How it works</h2>
+            <ol className="mt-5 space-y-4">
+              <WorkflowStep
+                number={1}
                 title="Lead submitted"
-                text="Sales user enters lead details in this form."
+                text="Sales enters name, phone, and company here."
               />
-              <Step
-                number="2"
-                title="Voice agent called"
-                text="Backend triggers Bolna outbound call instantly."
+              <WorkflowStep
+                number={2}
+                title="Voice agent calls"
+                text="Backend triggers a Bolna outbound call."
               />
-              <Step
-                number="3"
+              <WorkflowStep
+                number={3}
                 title="Qualification captured"
-                text="Agent asks questions and sends result via webhook."
+                text="Agent asks six questions and calls save_lead_result."
               />
-              <Step
-                number="4"
-                title="Dashboard updated"
-                text="Status, summary, and qualification score are shown."
+              <WorkflowStep
+                number={4}
+                title="Dashboard updates"
+                text="Status, summary, and qualified flag appear live."
               />
-            </div>
-            <div className="mt-6 rounded-lg border border-white/10 bg-black/30 p-4 text-xs text-zinc-400">
-              Tip: Use verified numbers on trial accounts for outbound testing.
+            </ol>
+            <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-100/90">
+              <span className="font-medium text-amber-200">Tip:</span> On trial
+              accounts, use verified phone numbers for reliable outbound tests.
             </div>
           </div>
-        </section>
-      </div>
-    </main>
+        </div>
+      </section>
+    </AppShell>
   );
 }
 
-function Step({
+function WorkflowStep({
   number,
   title,
   text,
 }: {
-  number: string;
+  number: number;
   title: string;
   text: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-md border border-white/10 bg-black/20 p-3">
-      <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+    <li className="flex gap-4">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600/90 text-sm font-semibold text-white shadow-md shadow-indigo-600/20">
         {number}
       </span>
-      <div>
-        <p className="font-medium text-zinc-100">{title}</p>
-        <p className="text-zinc-400">{text}</p>
+      <div className="min-w-0 pt-0.5">
+        <p className="font-medium text-slate-100">{title}</p>
+        <p className="mt-0.5 text-sm leading-relaxed text-slate-400">{text}</p>
       </div>
-    </div>
+    </li>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      className="h-4 w-4 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
   );
 }
