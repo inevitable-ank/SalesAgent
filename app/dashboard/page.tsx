@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppShell, secondaryButtonClassName } from "@/app/components/app-shell";
 
 type Lead = {
@@ -189,9 +189,7 @@ export default function DashboardPage() {
                       {formatDate(lead.createdAt)}
                     </td>
                     <td className="max-w-xs px-4 py-4 pr-4 text-slate-300 sm:pr-6">
-                      <p className="line-clamp-3 leading-relaxed" title={lead.summary}>
-                        {lead.summary || "—"}
-                      </p>
+                      <SummaryCell summary={lead.summary} />
                     </td>
                   </tr>
                 ))}
@@ -201,6 +199,84 @@ export default function DashboardPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function SummaryCell({ summary }: { summary: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const text = summary?.trim() || "—";
+
+  const measureTruncation = useCallback(() => {
+    const el = textRef.current;
+    if (!el || text === "—" || expanded) {
+      return;
+    }
+    setIsTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [text, expanded]);
+
+  useEffect(() => {
+    if (text === "—") {
+      setIsTruncated(false);
+      return;
+    }
+
+    measureTruncation();
+
+    const el = textRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(measureTruncation);
+    observer.observe(el);
+    window.addEventListener("resize", measureTruncation);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measureTruncation);
+    };
+  }, [text, expanded, measureTruncation]);
+
+  useEffect(() => {
+    if (!expanded) {
+      const frame = requestAnimationFrame(measureTruncation);
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [expanded, measureTruncation]);
+
+  if (text === "—") {
+    return <span className="text-slate-500">—</span>;
+  }
+
+  return (
+    <div className="min-w-[10rem] max-w-xs">
+      <p
+        ref={textRef}
+        className={`text-sm leading-relaxed text-slate-300 ${
+          expanded ? "whitespace-pre-wrap break-words" : "line-clamp-2"
+        }`}
+      >
+        {text}
+      </p>
+      {isTruncated && !expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-1 text-left text-xs font-medium text-indigo-400 transition hover:text-indigo-300"
+        >
+          Read more
+        </button>
+      ) : null}
+      {expanded && isTruncated ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="mt-1 text-left text-xs font-medium text-slate-400 transition hover:text-slate-300"
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
   );
 }
 
