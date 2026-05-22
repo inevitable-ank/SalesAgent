@@ -8,6 +8,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/app/components/app-shell";
+import { normalizePhoneE164, PHONE_FORMAT_HINT } from "@/app/lib/phone";
 import {
   getUseCaseConfig,
   USE_CASE_LIST,
@@ -32,12 +33,19 @@ export default function Home() {
     setIsError(false);
 
     try {
+      const phoneE164 = normalizePhoneE164(phone);
+      if (!phoneE164) {
+        setIsError(true);
+        setMessage(`Invalid phone number. ${PHONE_FORMAT_HINT}`);
+        return;
+      }
+
       const response = await fetch("/api/create-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          phone,
+          phone: phoneE164,
           company: detail,
           useCase,
         }),
@@ -47,6 +55,7 @@ export default function Home() {
         error?: string;
         message?: string;
         leadId?: string;
+        bolnaResponse?: string;
       };
 
       if (!response.ok) {
@@ -169,7 +178,7 @@ export default function Home() {
                   inputMode="tel"
                 />
                 <span className="mt-1.5 block text-xs text-slate-500">
-                  E.164 format (e.g. +919876543210) for outbound testing.
+                  {PHONE_FORMAT_HINT}
                 </span>
               </label>
 

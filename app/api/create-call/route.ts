@@ -1,4 +1,5 @@
 import { addLead, updateLead } from "@/app/lib/lead-store";
+import { normalizePhoneE164, PHONE_FORMAT_HINT } from "@/app/lib/phone";
 import { isUseCaseId, resolveBolnaAgentId } from "@/app/lib/use-cases";
 
 type CreateCallBody = {
@@ -30,13 +31,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const phoneE164 = normalizePhoneE164(phone);
+    if (!phoneE164) {
+      return Response.json(
+        { error: `Invalid phone number. ${PHONE_FORMAT_HINT}` },
+        { status: 400 },
+      );
+    }
+
     const leadId = crypto.randomUUID();
 
     await addLead({
       id: leadId,
       useCase: useCaseRaw,
       name,
-      phone,
+      phone: phoneE164,
       company,
       callStatus: "pending",
       qualified: null,
@@ -65,10 +74,10 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         agent_id: agentId,
-        recipient_phone_number: phone,
+        recipient_phone_number: phoneE164,
         user_data: {
           name,
-          phone,
+          phone: phoneE164,
           company,
           lead_id: leadId,
           use_case: useCaseRaw,
@@ -78,9 +87,18 @@ export async function POST(request: Request) {
 
     if (!bolnaRes.ok) {
       const errorText = await bolnaRes.text();
+      let errorMessage = "Failed to trigger Bolna call.";
+      try {
+        const parsed = JSON.parse(errorText) as { message?: string };
+        if (parsed.message) {
+          errorMessage = parsed.message;
+        }
+      } catch {
+        // keep default message
+      }
       return Response.json(
         {
-          error: "Failed to trigger Bolna call.",
+          error: errorMessage,
           bolnaResponse: errorText,
         },
         { status: 502 },
