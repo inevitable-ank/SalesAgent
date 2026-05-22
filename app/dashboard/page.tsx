@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, secondaryButtonClassName } from "@/app/components/app-shell";
+import { UseCaseBadge } from "@/app/components/use-case-badge";
+import {
+  getUseCaseConfig,
+  USE_CASE_LIST,
+  type UseCaseId,
+} from "@/app/lib/use-cases";
 
 type Lead = {
   id: string;
+  useCase: UseCaseId;
   name: string;
   phone: string;
   company: string;
@@ -15,8 +22,22 @@ type Lead = {
   createdAt: string;
 };
 
+type DashboardTab = "all" | UseCaseId;
+
+function readTabFromUrl(): DashboardTab {
+  if (typeof window === "undefined") {
+    return "all";
+  }
+  const fromUrl = new URLSearchParams(window.location.search).get("tab");
+  if (fromUrl === "all" || fromUrl === "sales" || fromUrl === "apollo") {
+    return fromUrl;
+  }
+  return "all";
+}
+
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [tab, setTab] = useState<DashboardTab>(readTabFromUrl);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<string>("—");
@@ -61,25 +82,52 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const totalLeads = leads.length;
-  const qualifiedLeads = leads.filter((lead) => lead.qualified === true).length;
-  const inProgressLeads = leads.filter(
+  const filteredLeads = useMemo(
+    () =>
+      tab === "all" ? leads : leads.filter((lead) => lead.useCase === tab),
+    [leads, tab],
+  );
+
+  const tabConfig =
+    tab === "all" ? null : getUseCaseConfig(tab);
+
+  const positiveOutcomes = filteredLeads.filter(
+    (lead) => lead.qualified === true,
+  ).length;
+  const inProgressLeads = filteredLeads.filter(
     (lead) => lead.callStatus === "in_progress",
   ).length;
-  const completedLeads = leads.filter(
+  const completedLeads = filteredLeads.filter(
     (lead) => lead.callStatus === "completed",
   ).length;
-  const qualificationRate =
-    totalLeads === 0
+  const outcomeRate =
+    filteredLeads.length === 0
       ? "0%"
-      : `${Math.round((qualifiedLeads / totalLeads) * 100)}%`;
+      : `${Math.round((positiveOutcomes / filteredLeads.length) * 100)}%`;
+
+  const detailColumnLabel =
+    tab === "apollo"
+      ? "Procedure / ward"
+      : tab === "sales"
+        ? "Company"
+        : "Details";
+
+  const outcomeColumnLabel =
+    tab === "apollo"
+      ? "Outcome"
+      : tab === "sales"
+        ? "Qualified"
+        : "Outcome";
+
+  const metricOutcomeLabel =
+    tabConfig?.metricOutcomeLabel ?? "Positive outcomes";
 
   return (
     <AppShell active="dashboard">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Lead dashboard
+            Unified dashboard
           </h1>
           <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
             <span className="inline-flex items-center gap-2">
@@ -94,19 +142,48 @@ export default function DashboardPage() {
           </p>
         </div>
         <Link href="/" className={secondaryButtonClassName}>
-          + New lead
+          + New call
         </Link>
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <FilterTab
+          active={tab === "all"}
+          onClick={() => setTab("all")}
+          label="All"
+          count={leads.length}
+        />
+        {USE_CASE_LIST.map((id) => {
+          const config = getUseCaseConfig(id);
+          const count = leads.filter((lead) => lead.useCase === id).length;
+          return (
+            <FilterTab
+              key={id}
+              active={tab === id}
+              onClick={() => setTab(id)}
+              label={config.shortLabel}
+              count={count}
+              variant={id}
+            />
+          );
+        })}
       </div>
 
       <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Total leads"
-          value={String(totalLeads)}
+          label={tab === "all" ? "Total records" : `Total (${tabConfig?.shortLabel})`}
+          value={String(filteredLeads.length)}
           accent="slate"
         />
         <MetricCard
-          label="Qualified"
-          value={String(qualifiedLeads)}
+          label={
+            tab === "apollo"
+              ? "Stable"
+              : tab === "sales"
+                ? "Qualified"
+                : "Positive"
+          }
+          value={String(positiveOutcomes)}
           accent="emerald"
         />
         <MetricCard
@@ -115,8 +192,8 @@ export default function DashboardPage() {
           accent="indigo"
         />
         <MetricCard
-          label="Qualification rate"
-          value={qualificationRate}
+          label={metricOutcomeLabel}
+          value={outcomeRate}
           hint={`${completedLeads} completed`}
           accent="amber"
         />
@@ -128,6 +205,12 @@ export default function DashboardPage() {
           className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100"
         >
           {error}
+          {error.includes("use_case") ? (
+            <p className="mt-2 text-xs text-red-200/80">
+              Run <code className="text-red-100">supabase/add-use-case.sql</code> in
+              your Supabase SQL editor, then retry.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -144,29 +227,35 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        ) : leads.length === 0 ? (
-          <EmptyState />
+        ) : filteredLeads.length === 0 ? (
+          <EmptyState tab={tab} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left text-sm">
+            <table className="w-full min-w-[960px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 bg-slate-800/50 text-xs font-medium uppercase tracking-wider text-slate-400">
-                  <th className="px-4 py-3.5 sm:px-6">Lead</th>
+                  <th className="px-4 py-3.5 sm:px-6">Type</th>
+                  <th className="px-4 py-3.5">
+                    {tab === "apollo" ? "Patient" : tab === "sales" ? "Lead" : "Contact"}
+                  </th>
                   <th className="px-4 py-3.5">Phone</th>
-                  <th className="px-4 py-3.5">Company</th>
+                  <th className="px-4 py-3.5">{detailColumnLabel}</th>
                   <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5">Qualified</th>
+                  <th className="px-4 py-3.5">{outcomeColumnLabel}</th>
                   <th className="px-4 py-3.5">Created</th>
                   <th className="px-4 py-3.5 sm:pr-6">Summary</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {leads.map((lead) => (
+                {filteredLeads.map((lead) => (
                   <tr
                     key={lead.id}
                     className="align-top transition-colors hover:bg-white/[0.03]"
                   >
                     <td className="px-4 py-4 sm:px-6">
+                      <UseCaseBadge useCase={lead.useCase} />
+                    </td>
+                    <td className="px-4 py-4">
                       <p className="font-medium text-white">{lead.name}</p>
                       <p
                         className="mt-1 max-w-[10rem] truncate font-mono text-xs text-slate-500"
@@ -183,7 +272,10 @@ export default function DashboardPage() {
                       <StatusBadge status={lead.callStatus} />
                     </td>
                     <td className="px-4 py-4">
-                      <QualificationBadge qualified={lead.qualified} />
+                      <OutcomeBadge
+                        qualified={lead.qualified}
+                        useCase={lead.useCase}
+                      />
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-slate-400">
                       {formatDate(lead.createdAt)}
@@ -199,6 +291,48 @@ export default function DashboardPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function FilterTab({
+  active,
+  onClick,
+  label,
+  count,
+  variant,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+  variant?: UseCaseId;
+}) {
+  const activeRing =
+    variant === "apollo"
+      ? "ring-teal-500/50 bg-teal-600/10 text-teal-100"
+      : variant === "sales"
+        ? "ring-indigo-500/50 bg-indigo-600/10 text-indigo-100"
+        : "ring-white/30 bg-white/10 text-white";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition ${
+        active
+          ? `border-transparent ring-2 ${activeRing}`
+          : "border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-200"
+      }`}
+    >
+      {label}
+      <span
+        className={`rounded-md px-1.5 py-0.5 text-xs tabular-nums ${
+          active ? "bg-black/20" : "bg-slate-800 text-slate-400"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -218,7 +352,6 @@ function SummaryCell({ summary }: { summary: string }) {
 
   useEffect(() => {
     if (text === "—") {
-      setIsTruncated(false);
       return;
     }
 
@@ -258,7 +391,7 @@ function SummaryCell({ summary }: { summary: string }) {
       >
         {text}
       </p>
-      {isTruncated && !expanded ? (
+      {text !== "—" && isTruncated && !expanded ? (
         <button
           type="button"
           onClick={() => setExpanded(true)}
@@ -267,7 +400,7 @@ function SummaryCell({ summary }: { summary: string }) {
           Read more
         </button>
       ) : null}
-      {expanded && isTruncated ? (
+      {text !== "—" && expanded && isTruncated ? (
         <button
           type="button"
           onClick={() => setExpanded(false)}
@@ -328,22 +461,24 @@ function MetricCard({
   );
 }
 
-function EmptyState() {
+function EmptyState({ tab }: { tab: DashboardTab }) {
+  const label =
+    tab === "all"
+      ? "any workflow"
+      : getUseCaseConfig(tab as UseCaseId).shortLabel;
+
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-slate-800/80 text-2xl text-slate-500">
         ∅
       </div>
-      <p className="text-lg font-medium text-slate-200">No leads yet</p>
+      <p className="text-lg font-medium text-slate-200">No records yet</p>
       <p className="mt-2 max-w-sm text-sm text-slate-400">
-        Submit a lead from the form to trigger a qualification call. Results
-        will show up here automatically.
+        Start a {label} call from the home page. Results will appear here
+        automatically.
       </p>
-      <Link
-        href="/"
-        className={`${secondaryButtonClassName} mt-6`}
-      >
-        Create first lead
+      <Link href="/" className={`${secondaryButtonClassName} mt-6`}>
+        Go to home
       </Link>
     </div>
   );
@@ -373,11 +508,19 @@ function StatusBadge({ status }: { status: Lead["callStatus"] }) {
   );
 }
 
-function QualificationBadge({ qualified }: { qualified: boolean | null }) {
+function OutcomeBadge({
+  qualified,
+  useCase,
+}: {
+  qualified: boolean | null;
+  useCase: UseCaseId;
+}) {
+  const config = getUseCaseConfig(useCase);
+
   if (qualified === true) {
     return (
       <span className="inline-flex rounded-full border border-emerald-500/40 bg-emerald-600/20 px-2.5 py-1 text-xs font-medium text-emerald-200">
-        Qualified
+        {config.outcomePositive}
       </span>
     );
   }
@@ -385,14 +528,14 @@ function QualificationBadge({ qualified }: { qualified: boolean | null }) {
   if (qualified === false) {
     return (
       <span className="inline-flex rounded-full border border-red-500/40 bg-red-600/20 px-2.5 py-1 text-xs font-medium text-red-200">
-        Not qualified
+        {config.outcomeNegative}
       </span>
     );
   }
 
   return (
     <span className="inline-flex rounded-full border border-slate-500/40 bg-slate-600/20 px-2.5 py-1 text-xs font-medium text-slate-300">
-      Pending
+      {config.outcomePending}
     </span>
   );
 }

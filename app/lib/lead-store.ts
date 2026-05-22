@@ -1,5 +1,9 @@
+import type { UseCaseId } from "@/app/lib/use-cases";
+import { supabase } from "@/app/lib/supabase-server";
+
 export type LeadRecord = {
   id: string;
+  useCase: UseCaseId;
   name: string;
   phone: string;
   company: string;
@@ -9,10 +13,9 @@ export type LeadRecord = {
   createdAt: string;
 };
 
-import { supabase } from "@/app/lib/supabase-server";
-
 type LeadRow = {
   id: string;
+  use_case?: string | null;
   name: string;
   phone: string;
   company: string;
@@ -22,9 +25,15 @@ type LeadRow = {
   created_at: string;
 };
 
+function normalizeUseCase(value: string | null | undefined): UseCaseId {
+  if (value === "apollo") return "apollo";
+  return "sales";
+}
+
 function mapToRecord(row: LeadRow): LeadRecord {
   return {
     id: row.id,
+    useCase: normalizeUseCase(row.use_case),
     name: row.name,
     phone: row.phone,
     company: row.company,
@@ -38,6 +47,7 @@ function mapToRecord(row: LeadRow): LeadRecord {
 export async function addLead(lead: LeadRecord) {
   const { error } = await supabase.from("leads").insert({
     id: lead.id,
+    use_case: lead.useCase,
     name: lead.name,
     phone: lead.phone,
     company: lead.company,

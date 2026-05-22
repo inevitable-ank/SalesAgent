@@ -1,8 +1,11 @@
-# Bolna Lead Qualifier
+# Voice AI Ops Hub (Sales + Apollo)
 
-An end-to-end AI voice calling app that automatically qualifies inbound B2B sales leads using Bolna Voice AI, a Next.js web app, and Supabase.
+An end-to-end AI voice calling app on **one site** with two workflows:
 
-A sales user submits a lead through a web form, the backend instantly triggers an outbound voice call via Bolna, an AI agent runs a structured qualification conversation in English or Hindi, the call result is pushed back through a webhook, and the dashboard updates in real time with the qualification outcome.
+1. **B2B sales lead qualification** — original Bolna qualification flow.
+2. **Apollo Hospitals post-discharge follow-up** — symptom checklist calls with stable vs escalate outcomes.
+
+Both share the same Next.js app, Supabase `leads` table, webhook, and dashboard (filter by **All / Sales / Apollo**).
 
 Live deployment: https://sales-agent-pied.vercel.app
 
@@ -155,6 +158,9 @@ Create a `.env` file in `app_v1/`:
 ```
 BOLNA_API_KEY=your_bolna_api_key
 BOLNA_AGENT_ID=your_bolna_agent_id
+# Optional: separate agents per workflow (falls back to BOLNA_AGENT_ID)
+BOLNA_AGENT_ID_SALES=your_sales_agent_id
+BOLNA_AGENT_ID_APOLLO=your_apollo_agent_id
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 SUPABASE_SERVICE_ROLE_KEY=optional_but_recommended_for_server_routes
@@ -175,6 +181,7 @@ Create a `leads` table in Supabase with this schema:
 ```sql
 create table public.leads (
   id           uuid primary key,
+  use_case     text not null default 'sales' check (use_case in ('sales', 'apollo')),
   name         text not null,
   phone        text not null,
   company      text not null,
@@ -185,8 +192,11 @@ create table public.leads (
 );
 
 create index leads_phone_idx on public.leads (phone);
+create index leads_use_case_idx on public.leads (use_case);
 create index leads_created_at_idx on public.leads (created_at desc);
 ```
+
+**Existing projects:** run `supabase/add-use-case.sql` in the Supabase SQL editor to add the `use_case` column.
 
 If you use the Supabase publishable (anon) key, make sure RLS is either disabled on `leads` or has policies that allow inserts and updates from the server route.
 
@@ -223,7 +233,7 @@ Configure this custom function tool inside your Bolna agent:
       },
       "phone": {
         "type": "string",
-        "description": "Lead phone in E.164 format, e.g. +918289094077"
+        "description": "Lead phone in E.164 format, e.g. +919876543210"
       },
       "qualified": {
         "type": "boolean",
@@ -281,11 +291,14 @@ Request body:
 
 ```json
 {
-  "name": "Ankit",
-  "phone": "+918289094077",
-  "company": "Multyfi"
+  "name": "Jane Doe",
+  "phone": "+919876543210",
+  "company": "Acme Pvt Ltd",
+  "useCase": "sales"
 }
 ```
+
+For Apollo post-discharge, use `"useCase": "apollo"` and put procedure/ward in `company`.
 
 Successful response:
 

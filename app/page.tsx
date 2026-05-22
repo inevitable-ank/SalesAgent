@@ -8,14 +8,22 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/app/components/app-shell";
+import {
+  getUseCaseConfig,
+  USE_CASE_LIST,
+  type UseCaseId,
+} from "@/app/lib/use-cases";
 
 export default function Home() {
+  const [useCase, setUseCase] = useState<UseCaseId>("sales");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
+  const [detail, setDetail] = useState("");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const config = getUseCaseConfig(useCase);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,7 +35,12 @@ export default function Home() {
       const response = await fetch("/api/create-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, company }),
+        body: JSON.stringify({
+          name,
+          phone,
+          company: detail,
+          useCase,
+        }),
       });
 
       const data = (await response.json()) as {
@@ -44,11 +57,11 @@ export default function Home() {
 
       setMessage(
         data.message ??
-          `Lead submitted successfully. Lead ID: ${data.leadId ?? "N/A"}`,
+          `${config.shortLabel} record saved. ID: ${data.leadId ?? "N/A"}`,
       );
       setName("");
       setPhone("");
-      setCompany("");
+      setDetail("");
     } catch {
       setIsError(true);
       setMessage("Network error while creating call.");
@@ -59,19 +72,49 @@ export default function Home() {
 
   return (
     <AppShell active="home">
-      <div className="mb-8 max-w-2xl">
+      <div className="mb-8 max-w-3xl">
         <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-200">
           <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-          Outbound voice qualification
+          Dual voice workflows — one platform
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Qualify inbound leads in minutes
+          Voice AI operations hub
         </h1>
         <p className="mt-3 text-base leading-relaxed text-slate-400">
-          Submit a lead, trigger an AI call instantly, and track qualification
-          outcomes on the dashboard in real time.
+          Run <strong className="font-medium text-slate-300">sales qualification</strong>{" "}
+          or <strong className="font-medium text-slate-300">Apollo post-discharge</strong>{" "}
+          calls from the same app. All results appear on one dashboard.
         </p>
       </div>
+
+      <section className="mb-6 grid gap-3 sm:grid-cols-2">
+        {USE_CASE_LIST.map((id) => {
+          const item = getUseCaseConfig(id);
+          const selected = useCase === id;
+          const ring =
+            id === "apollo"
+              ? "ring-teal-500/60 border-teal-500/40"
+              : "ring-indigo-500/60 border-indigo-500/40";
+
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setUseCase(id)}
+              className={`rounded-2xl border p-4 text-left transition ${
+                selected
+                  ? `bg-slate-800/80 ring-2 ${ring}`
+                  : "border-white/10 bg-slate-900/40 hover:border-white/20"
+              }`}
+            >
+              <p className="text-sm font-semibold text-white">{item.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                {item.description}
+              </p>
+            </button>
+          );
+        })}
+      </section>
 
       <section className="grid gap-6 lg:grid-cols-5 lg:gap-8">
         <div className="lg:col-span-3">
@@ -79,31 +122,35 @@ export default function Home() {
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  Start qualification call
+                  {config.tagline}
                 </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Bolna will call this number and run your qualification script.
+                  Bolna will call this number using your{" "}
+                  <span className="text-slate-300">{config.shortLabel}</span>{" "}
+                  agent script.
                 </p>
               </div>
               <Link
-                href="/dashboard"
+                href={`/dashboard?tab=${useCase}`}
                 className={`${secondaryButtonClassName} shrink-0`}
               >
-                View leads
+                View results
               </Link>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
+              <input type="hidden" name="useCase" value={useCase} />
+
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Lead name
+                  {config.nameLabel}
                 </span>
                 <input
                   required
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   className={inputClassName}
-                  placeholder="John Doe"
+                  placeholder={config.namePlaceholder}
                   autoComplete="name"
                 />
               </label>
@@ -122,21 +169,20 @@ export default function Home() {
                   inputMode="tel"
                 />
                 <span className="mt-1.5 block text-xs text-slate-500">
-                  Use E.164 format (e.g. +918289094077) for outbound testing.
+                  E.164 format (e.g. +919876543210) for outbound testing.
                 </span>
               </label>
 
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Company
+                  {config.detailLabel}
                 </span>
                 <input
                   required
-                  value={company}
-                  onChange={(event) => setCompany(event.target.value)}
+                  value={detail}
+                  onChange={(event) => setDetail(event.target.value)}
                   className={inputClassName}
-                  placeholder="Acme Pvt Ltd"
-                  autoComplete="organization"
+                  placeholder={config.detailPlaceholder}
                 />
               </label>
 
@@ -151,7 +197,7 @@ export default function Home() {
                     Submitting…
                   </>
                 ) : (
-                  "Start qualification call"
+                  config.submitLabel
                 )}
               </button>
 
@@ -173,32 +219,25 @@ export default function Home() {
 
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 sm:p-7">
-            <h2 className="text-lg font-semibold text-white">How it works</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {config.shortLabel} workflow
+            </h2>
             <ol className="mt-5 space-y-4">
-              <WorkflowStep
-                number={1}
-                title="Lead submitted"
-                text="Sales enters name, phone, and company here."
-              />
-              <WorkflowStep
-                number={2}
-                title="Voice agent calls"
-                text="Backend triggers a Bolna outbound call."
-              />
-              <WorkflowStep
-                number={3}
-                title="Qualification captured"
-                text="Agent asks six questions and calls save_lead_result."
-              />
-              <WorkflowStep
-                number={4}
-                title="Dashboard updates"
-                text="Status, summary, and qualified flag appear live."
-              />
+              {config.workflow.map((step, index) => (
+                <WorkflowStep
+                  key={step.title}
+                  number={index + 1}
+                  title={step.title}
+                  text={step.text}
+                  accent={config.accent}
+                />
+              ))}
             </ol>
             <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-relaxed text-amber-100/90">
-              <span className="font-medium text-amber-200">Tip:</span> On trial
-              accounts, use verified phone numbers for reliable outbound tests.
+              <span className="font-medium text-amber-200">Bolna tip:</span> Set{" "}
+              <code className="text-amber-100/80">BOLNA_AGENT_ID_SALES</code> and{" "}
+              <code className="text-amber-100/80">BOLNA_AGENT_ID_APOLLO</code>{" "}
+              for separate prompts, or one <code className="text-amber-100/80">BOLNA_AGENT_ID</code> for both.
             </div>
           </div>
         </div>
@@ -211,14 +250,20 @@ function WorkflowStep({
   number,
   title,
   text,
+  accent,
 }: {
   number: number;
   title: string;
   text: string;
+  accent: "indigo" | "teal";
 }) {
+  const bg = accent === "teal" ? "bg-teal-600/90 shadow-teal-600/20" : "bg-indigo-600/90 shadow-indigo-600/20";
+
   return (
     <li className="flex gap-4">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600/90 text-sm font-semibold text-white shadow-md shadow-indigo-600/20">
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white shadow-md ${bg}`}
+      >
         {number}
       </span>
       <div className="min-w-0 pt-0.5">

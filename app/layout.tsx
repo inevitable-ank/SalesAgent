@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bolna Lead Qualifier",
-  description: "Inbound lead qualification using Bolna voice agent",
+  title: "Voice AI Ops Hub | Sales + Apollo",
+  description:
+    "B2B sales qualification and Apollo post-discharge follow-up on one Bolna-powered platform",
 };
 
 export default function RootLayout({

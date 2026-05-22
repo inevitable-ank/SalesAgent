@@ -1,9 +1,11 @@
 import { addLead, updateLead } from "@/app/lib/lead-store";
+import { isUseCaseId, resolveBolnaAgentId } from "@/app/lib/use-cases";
 
 type CreateCallBody = {
   name?: string;
   phone?: string;
   company?: string;
+  useCase?: string;
 };
 
 export async function POST(request: Request) {
@@ -12,6 +14,14 @@ export async function POST(request: Request) {
     const name = body.name?.trim();
     const phone = body.phone?.trim();
     const company = body.company?.trim();
+    const useCaseRaw = body.useCase?.trim() ?? "sales";
+
+    if (!isUseCaseId(useCaseRaw)) {
+      return Response.json(
+        { error: "useCase must be 'sales' or 'apollo'" },
+        { status: 400 },
+      );
+    }
 
     if (!name || !phone || !company) {
       return Response.json(
@@ -24,6 +34,7 @@ export async function POST(request: Request) {
 
     await addLead({
       id: leadId,
+      useCase: useCaseRaw,
       name,
       phone,
       company,
@@ -34,15 +45,15 @@ export async function POST(request: Request) {
     });
 
     const apiKey = process.env.BOLNA_API_KEY;
-    const agentId = process.env.BOLNA_AGENT_ID;
+    const agentId = resolveBolnaAgentId(useCaseRaw);
 
     if (!apiKey || !agentId) {
-      // Assignment-friendly fallback so UI flow works without blocking on env setup.
       return Response.json({
         ok: true,
         leadId,
+        useCase: useCaseRaw,
         message:
-          "Lead stored. Set BOLNA_API_KEY and BOLNA_AGENT_ID to trigger real outbound calls.",
+          "Record stored. Set BOLNA_API_KEY and BOLNA_AGENT_ID (or BOLNA_AGENT_ID_SALES / BOLNA_AGENT_ID_APOLLO) to trigger real outbound calls.",
       });
     }
 
@@ -57,8 +68,10 @@ export async function POST(request: Request) {
         recipient_phone_number: phone,
         user_data: {
           name,
+          phone,
           company,
           lead_id: leadId,
+          use_case: useCaseRaw,
         },
       }),
     });
@@ -79,7 +92,7 @@ export async function POST(request: Request) {
       summary: "Call triggered. Waiting for webhook result.",
     });
 
-    return Response.json({ ok: true, leadId });
+    return Response.json({ ok: true, leadId, useCase: useCaseRaw });
   } catch (error) {
     return Response.json(
       {

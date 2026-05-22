@@ -32,7 +32,7 @@ export function AppShell({
                 Bolna Lead Qualifier
               </span>
               <span className="block text-xs text-slate-400">
-                Voice AI qualification
+                Sales + Apollo voice ops
               </span>
             </span>
           </Link>
